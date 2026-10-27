@@ -1,10 +1,10 @@
-/* Mapa operativo: capas base, incidentes (clusters + calor), filtros, resumen y paneles. */
+/* Mapa en vivo: lo que pasa hoy (móviles, cámaras, incidentes del día, alertas y SOS). El historial va en history.js. */
 (function (MT) {
   'use strict';
   const D = MT.Data;
   const { $, $$, icon, esc, fmt } = MT;
 
-  /* ---------- Fábrica de mapas (se reutiliza en Rutas y Análisis) ---------- */
+  /* ---------- Fábrica de mapas (se reutiliza en Histórico, Rutas y Análisis) ---------- */
   let tileWarned = false;
   MT.makeMap = function (el, opts = {}) {
     const map = L.map(el, { minZoom: 13, maxZoom: 19, zoomControl: true }).setView(opts.center || D.CENTER, opts.zoom || 15);
@@ -27,8 +27,21 @@
     return map;
   };
 
+  // Panel lateral plegable sobre un mapa (corre los controles de Leaflet cuando está abierto)
+  MT.setupPanel = function (sec, panel, toggle, side) {
+    const show = on => {
+      panel.classList.toggle('collapsed', !on);
+      toggle.classList.toggle('hidden', on);
+      sec.classList.toggle(side === 'left' ? 'lp-open' : 'rp-open', on);
+    };
+    panel.querySelector('[data-close]').onclick = () => show(false);
+    toggle.querySelector('button').onclick = () => show(true);
+    show(window.innerWidth >= 860); // en pantallas chicas arranca cerrado
+    return show;
+  };
+
   MT.incidentIcon = function (inc) {
-    const recent = Date.now() - inc.t < 86400000;
+    const recent = Date.now() - inc.t < 2 * 3600000;
     return L.divIcon({ className: '', html: `<div class="inc-dot ${recent ? 'recent' : ''}" style="--c:${D.TYPES[inc.type].color}"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
   };
   const STATUS = { abierto: ['Abierto', 'tag-danger'], investigacion: ['En investigación', 'tag-warn'], cerrado: ['Cerrado', 'tag-ok'] };
@@ -43,13 +56,14 @@
       <p class="muted">${esc(inc.desc || '')}</p></div>`;
   };
 
-  /* ---------- Mapa operativo ---------- */
+  /* ---------- Mapa en vivo ---------- */
   const M = MT.Map = {
     map: null,
     layers: {},
-    filter: { period: 'mes', types: new Set(Object.keys(D.TYPES)), franja: 'all', zone: 'all', from: null, to: null },
-    visible: { units: true, incidents: true, heat: true, cameras: true, coverage: false, alerts: true, pois: false, routes: false }
+    markers: {},
+    visible: { units: true, incidents: true, cameras: true, alerts: true, coverage: false, routes: false, pois: false }
   };
+  const today = () => D.filter({ period: 'hoy' }).sort((a, b) => b.t - a.t);
 
   M.init = function () {
     const map = M.map = MT.makeMap('map-op', { zoom: 15 });
@@ -57,16 +71,7 @@
     L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
 
     const L_ = M.layers;
-    L_.incidents = L.markerClusterGroup({
-      showCoverageOnHover: false, maxClusterRadius: 45, disableClusteringAtZoom: 18,
-      iconCreateFunction(c) {
-        const n = c.getChildCount();
-        const cls = n >= 30 ? '' : n >= 10 ? 'md' : 'sm';
-        const s = n >= 30 ? 44 : n >= 10 ? 38 : 32;
-        return L.divIcon({ className: '', html: `<div class="cluster ${cls}" style="width:${s}px;height:${s}px">${n}</div>`, iconSize: [s, s] });
-      }
-    });
-    L_.heat = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 17, minOpacity: 0.3, gradient: { 0.2: '#1e3a8a', 0.45: '#06b6d4', 0.65: '#facc15', 0.85: '#f97316', 1: '#ef4444' } });
+    L_.incidents = L.layerGroup();
     L_.units = L.layerGroup();
     L_.cameras = L.layerGroup();
     L_.coverage = L.layerGroup();
@@ -101,6 +106,7 @@
     });
 
     document.addEventListener('mt:incidents', () => M.render());
+    document.addEventListener('mt:tick', M.updateLive);
   };
 
   M.setLayer = function (key, on) {
@@ -118,68 +124,65 @@
     });
   };
 
-  /* ---------- Render de incidentes según filtros ---------- */
+  /* ---------- Incidentes del día ---------- */
   M.render = function () {
     if (!M.map) return;
-    const list = D.filter(M.filter);
-    const L_ = M.layers;
-    L_.incidents.clearLayers();
-    L_.incidents.addLayers(list.map(inc => L.marker([inc.lat, inc.lng], { icon: MT.incidentIcon(inc) }).bindPopup(() => MT.incidentPopup(inc))));
-    // El mapa de calor solo se redibuja con el mapa visible (si no, el canvas mide 0)
-    if (M.map.getSize().x > 0 && $('#sec-mapa').offsetParent !== null) {
-      L_.heat.setOptions({ max: Math.max(1.5, Math.min(6, list.length / 60)) });
-      L_.heat.setLatLngs(list.map(i => [i.lat, i.lng, 0.6]));
+    const list = today();
+    M.layers.incidents.clearLayers();
+    M.markers = {};
+    list.forEach(inc => {
+      M.markers[inc.id] = L.marker([inc.lat, inc.lng], { icon: MT.incidentIcon(inc), zIndexOffset: 300 })
+        .bindPopup(() => MT.incidentPopup(inc)).addTo(M.layers.incidents);
+    });
+    const c = $('#lc-incidents'); if (c) c.textContent = list.length;
+    const el = $('#lp-today');
+    if (el) {
+      el.innerHTML = list.length ? list.map(i => `<div class="feed-item" data-inc="${i.id}" style="cursor:pointer;border-left-color:${D.TYPES[i.type].color}">
+          <div class="ttl"><span>${D.TYPES[i.type].short}</span>${MT.statusTag(i.status)}</div>
+          <div class="meta"><span class="mono">${fmt.time(i.t)}</span><span>${esc(i.addr)}</span></div></div>`).join('')
+        : '<div class="empty">Sin incidentes reportados hoy.</div>';
+      $$('[data-inc]', el).forEach(r => r.onclick = () => {
+        const inc = list.find(i => i.id === r.dataset.inc);
+        M.map.flyTo([inc.lat, inc.lng], 17, { duration: .6 });
+        setTimeout(() => M.markers[inc.id] && M.markers[inc.id].openPopup(), 700);
+      });
     }
-    updateSummary(list);
+    M.updateLive();
   };
 
-  function updateSummary(list) {
-    const el = $('#lp-summary');
-    if (!el) return;
-    const f = M.filter;
-    const [a, b] = D.periodRange(f.period, f.from, f.to);
-    const prev = D.filter(Object.assign({}, f, { period: 'custom', from: a - (b - a), to: a }));
-    const delta = prev.length ? (list.length - prev.length) / prev.length : 0;
-    const zones = {};
-    list.forEach(i => { zones[i.zone] = (zones[i.zone] || 0) + 1; });
-    const topZone = Object.entries(zones).sort((x, y) => y[1] - x[1])[0];
-    const peak = D.peakWindow(list, 3);
-    el.innerHTML = `<div class="mini-stats">
-      <div class="mini-stat"><b>${list.length}</b><span>Incidentes</span></div>
-      <div class="mini-stat"><b class="${delta > 0 ? 'delta-up' : 'delta-down'}">${prev.length ? (delta > 0 ? '▲ ' : '▼ ') + fmt.pct(Math.abs(delta)) : '—'}</b><span>vs. período anterior</span></div>
-      <div class="mini-stat" style="grid-column:span 2"><b style="font-size:14px;font-family:var(--font)">${topZone ? esc(D.ZONES[topZone[0]].name) : '—'}</b><span>Zona más afectada ${topZone ? `(${topZone[1]} casos, ${fmt.pct(topZone[1] / list.length)})` : ''}</span></div>
-      <div class="mini-stat" style="grid-column:span 2"><b style="font-size:14px;font-family:var(--font)">${list.length ? fmt.hourRange(peak.start, peak.end) : '—'}</b><span>Franja horaria con más casos ${list.length ? `(${fmt.pct(peak.share)})` : ''}</span></div>
-    </div>`;
-    const c = $('#lc-incidents'); if (c) c.textContent = list.length;
-  }
+  M.updateLive = function () {
+    const set = (id, v) => { const e = $('#' + id); if (e) e.textContent = v; };
+    const P = MT.Patrols, C = MT.Cameras;
+    set('lv-inc', today().length);
+    if (MT.SOS && MT.SOS.list) set('lv-cases', MT.SOS.active().length);
+    if (P && P.units.length) set('lv-units', `${P.available().length}/${P.units.length}`);
+    if (C) set('lv-cams', `${C.cams.filter(c => c.status === 'online').length}/${C.cams.length}`);
+    if (MT.Alerts && MT.Alerts.list) set('lv-alerts', MT.Alerts.active().length);
+  };
 
   /* ---------- Paneles laterales ---------- */
   function buildPanels() {
     const sec = $('#sec-mapa');
-    const T = D.TYPES;
     const left = MT.h(`<aside class="map-panel left" id="panel-left">
-      <div class="panel-tabs"><button class="active" style="justify-content:flex-start;padding-left:8px">${icon('layers', 15)} Capas y filtros</button>
+      <div class="panel-tabs"><button class="active" style="justify-content:flex-start;padding-left:8px"><i class="dot dot-live"></i>&nbsp;En vivo · hoy</button>
         <button class="icon-btn" data-close style="flex:0 0 34px" aria-label="Ocultar panel">${icon('x', 15)}</button></div>
       <div class="panel-scroll">
-        <div class="panel-sec"><h4>Mapa base</h4>
-          <div class="seg" id="base-seg"><button data-v="dark" class="active">Oscuro</button><button data-v="calles">Calles</button><button data-v="satelite">Satélite</button></div></div>
-        <div class="panel-sec"><h4>Período</h4>
-          <div class="seg" id="period-seg" style="display:flex">
-            <button data-v="hoy">Hoy</button><button data-v="semana">Semana</button><button data-v="mes" class="active">Mes</button><button data-v="anio">Año</button><button data-v="custom">Rango</button></div>
-          <div class="row hidden" id="custom-range" style="margin-top:8px"><input type="date" class="input" id="f-from"><input type="date" class="input" id="f-to"></div>
-        </div>
-        <div class="panel-sec"><h4>Resumen del filtro</h4><div id="lp-summary"></div></div>
+        <div class="panel-sec"><h4>Situación ahora</h4>
+          <div class="mini-stats">
+            <div class="mini-stat"><b id="lv-inc">0</b><span>Incidentes hoy</span></div>
+            <div class="mini-stat"><b id="lv-cases">0</b><span>SOS / casos en curso</span></div>
+            <div class="mini-stat"><b id="lv-units">—</b><span>Móviles disponibles</span></div>
+            <div class="mini-stat"><b id="lv-cams">—</b><span>Cámaras en línea</span></div>
+            <div class="mini-stat" style="grid-column:span 2"><b id="lv-alerts">0</b><span>Alertas IA sin atender</span></div>
+          </div></div>
+        <div class="panel-sec"><h4>Incidentes de hoy</h4><div class="feed" id="lp-today"></div></div>
         <div class="panel-sec"><h4>Capas</h4>
-          ${[['units', 'Patrullas en vivo', 'car'], ['incidents', 'Incidentes', 'pin'], ['heat', 'Mapa de calor', 'target'], ['cameras', 'Cámaras', 'video'], ['coverage', 'Cobertura de cámaras', 'eye'], ['alerts', 'Alertas IA', 'cpu'], ['routes', 'Rutas de patrullaje', 'route'], ['pois', 'Puntos de interés (aprox.)', 'flag']]
+          ${[['units', 'Móviles en vivo', 'car'], ['incidents', 'Incidentes de hoy', 'pin'], ['cameras', 'Cámaras', 'video'], ['alerts', 'Alertas IA', 'cpu'], ['coverage', 'Cobertura de cámaras', 'eye'], ['routes', 'Rutas de patrullaje', 'route'], ['pois', 'Puntos de interés (aprox.)', 'flag']]
             .map(([k, l, i]) => `<label class="check layer-row"><span class="row" style="gap:9px"><input type="checkbox" data-layer="${k}" ${M.visible[k] ? 'checked' : ''}>${icon(i, 15, 'dim')}${l}</span><span class="count" id="lc-${k}"></span></label>`).join('')}
         </div>
-        <div class="panel-sec"><h4>Tipo de incidente <button class="btn btn-ghost btn-xs" id="types-all">Todos</button></h4>
-          ${Object.entries(T).map(([k, t]) => `<label class="check"><input type="checkbox" data-type="${k}" checked><span class="swatch" style="background:${t.color}"></span>${t.label}</label>`).join('')}
-        </div>
-        <div class="panel-sec stack"><h4>Más filtros</h4>
-          <label class="field">Franja horaria<select class="select" id="f-franja"><option value="all">Todo el día</option><option value="manana">Mañana (06–12)</option><option value="tarde">Tarde (12–20)</option><option value="noche">Noche (20–01)</option><option value="madrugada">Madrugada (01–06)</option></select></label>
-          <label class="field">Zona<select class="select" id="f-zone"><option value="all">Todas las zonas</option>${Object.entries(D.ZONES).map(([k, z]) => `<option value="${k}">${z.name}</option>`).join('')}</select></label>
-        </div>
+        <div class="panel-sec"><h4>Mapa base</h4>
+          <div class="seg" id="base-seg"><button data-v="dark" class="active">Oscuro</button><button data-v="calles">Calles</button><button data-v="satelite">Satélite</button></div></div>
+        <div class="panel-sec"><button class="btn btn-sm btn-block" id="go-history">${icon('layers', 14)} Ver el historial en el Mapa histórico</button></div>
       </div></aside>`);
     const right = MT.h(`<aside class="map-panel right" id="panel-right">
       <div class="panel-tabs" id="rp-tabs">
@@ -192,27 +195,17 @@
       <div class="panel-scroll hidden" id="rp-alertas"></div>
       <div class="panel-scroll hidden" id="rp-moviles"></div>
     </aside>`);
-    const tgL = MT.h(`<div class="panel-toggle left hidden"><button class="btn btn-sm">${icon('layers', 15)} Capas y filtros</button></div>`);
+    const tgL = MT.h(`<div class="panel-toggle left hidden"><button class="btn btn-sm"><i class="dot dot-live"></i> En vivo · capas</button></div>`);
     const tgR = MT.h(`<div class="panel-toggle right hidden"><button class="btn btn-sm">${icon('radio', 15)} Casos y alertas</button></div>`);
     sec.append(left, right, tgL, tgR);
 
-    const togglePanel = (panel, tg, show) => {
-      panel.classList.toggle('collapsed', !show);
-      tg.classList.toggle('hidden', show);
-      sec.classList.toggle(panel === left ? 'lp-open' : 'rp-open', show);
-    };
-    sec.classList.add('lp-open', 'rp-open');
-    left.querySelector('[data-close]').onclick = () => togglePanel(left, tgL, false);
-    right.querySelector('[data-close]').onclick = () => togglePanel(right, tgR, false);
-    tgL.querySelector('button').onclick = () => togglePanel(left, tgL, true);
-    tgR.querySelector('button').onclick = () => togglePanel(right, tgR, true);
-    // En pantallas chicas los paneles arrancan cerrados
-    if (window.innerWidth < 860) { togglePanel(left, tgL, false); togglePanel(right, tgR, false); }
+    const showLeft = MT.setupPanel(sec, left, tgL, 'left');
+    const showRight = MT.setupPanel(sec, right, tgR, 'right');
     M.showRightTab = tab => {
-      togglePanel(right, tgR, true);
+      showRight(true);
       $$('#rp-tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
       ['casos', 'alertas', 'moviles'].forEach(t => $('#rp-' + t).classList.toggle('hidden', t !== tab));
-      if (window.innerWidth < 860) togglePanel(left, tgL, false);
+      if (window.innerWidth < 860) showLeft(false);
     };
     $$('#rp-tabs [data-tab]').forEach(b => b.onclick = () => M.showRightTab(b.dataset.tab));
 
@@ -220,37 +213,8 @@
       $$('#base-seg button').forEach(x => x.classList.toggle('active', x === b));
       M.map.setBase(b.dataset.v);
     });
-    $$('#period-seg button').forEach(b => b.onclick = () => {
-      $$('#period-seg button').forEach(x => x.classList.toggle('active', x === b));
-      M.filter.period = b.dataset.v;
-      $('#custom-range').classList.toggle('hidden', b.dataset.v !== 'custom');
-      if (b.dataset.v === 'custom') {
-        const today = new Date();
-        const iso = d => d.toISOString().slice(0, 10);
-        if (!$('#f-from').value) $('#f-from').value = iso(new Date(today - 60 * 86400000));
-        if (!$('#f-to').value) $('#f-to').value = iso(today);
-        readRange();
-      }
-      M.render();
-    });
-    const readRange = () => {
-      const f = $('#f-from').value, t = $('#f-to').value;
-      M.filter.from = f ? new Date(f + 'T00:00').getTime() : null;
-      M.filter.to = t ? new Date(t + 'T23:59').getTime() : null;
-    };
-    ['#f-from', '#f-to'].forEach(s => $(s).onchange = () => { readRange(); M.render(); });
     $$('[data-layer]', left).forEach(cb => cb.onchange = () => M.setLayer(cb.dataset.layer, cb.checked));
-    $$('[data-type]', left).forEach(cb => cb.onchange = () => {
-      cb.checked ? M.filter.types.add(cb.dataset.type) : M.filter.types.delete(cb.dataset.type);
-      M.render();
-    });
-    $('#types-all').onclick = () => {
-      const all = M.filter.types.size < Object.keys(T).length;
-      $$('[data-type]', left).forEach(cb => { cb.checked = all; all ? M.filter.types.add(cb.dataset.type) : M.filter.types.delete(cb.dataset.type); });
-      M.render();
-    };
-    $('#f-franja').onchange = e => { M.filter.franja = e.target.value; M.render(); };
-    $('#f-zone').onchange = e => { M.filter.zone = e.target.value; M.render(); };
+    $('#go-history').onclick = () => MT.App.go('historico');
   }
 
   /* ---------- Elegir un punto en el mapa ---------- */
@@ -278,11 +242,13 @@
     setTimeout(() => M.map.flyTo(ll, zoom, { duration: .8 }), 60);
   };
 
+  // Los incidentes de hoy se muestran en el mapa en vivo; los anteriores, en el histórico
   M.showIncident = function (inc) {
+    if (!M.markers[inc.id]) return MT.History.showIncident(inc);
     MT.App.go('mapa');
     setTimeout(() => {
       M.map.flyTo([inc.lat, inc.lng], 18, { duration: .8 });
-      setTimeout(() => L.popup().setLatLng([inc.lat, inc.lng]).setContent(MT.incidentPopup(inc)).openOn(M.map), 900);
+      setTimeout(() => M.markers[inc.id] && M.markers[inc.id].openPopup(), 900);
     }, 60);
   };
 

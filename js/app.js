@@ -15,7 +15,8 @@
 
   const NAV = [
     { group: 'Operación' },
-    { id: 'mapa', label: 'Mapa operativo', icon: 'map' },
+    { id: 'mapa', label: 'Mapa en vivo', icon: 'map' },
+    { id: 'historico', label: 'Mapa histórico', icon: 'layers', roles: ['admin', 'operador'] },
     { id: 'camaras', label: 'Cámaras', icon: 'video', roles: ['admin', 'operador'] },
     { id: 'alertas', label: 'Alertas y casos', icon: 'bell', count: true },
     { id: 'flota', label: 'Flota y patrullas', icon: 'car' },
@@ -45,6 +46,7 @@
     closeMenu();
     ({
       mapa: () => setTimeout(() => { MT.Map.map.invalidateSize(); MT.Map.render(); }, 30),
+      historico: () => MT.History.render(),
       camaras: () => MT.Cameras.renderGrid(),
       alertas: () => MT.Alerts.renderSection(),
       incidentes: () => MT.Sections.incidents(),

@@ -111,7 +111,7 @@
       <div><div class="muted" style="font-size:12px;margin-bottom:6px">Incidentes cercanos por hora del día <span class="dim">(resaltado = horario asignado)</span></div><div class="chart-box" style="height:170px"><canvas id="rt-chart"></canvas></div></div>
       ${topType ? `<div class="muted" style="font-size:12.5px">Delito más frecuente en el recorrido: <b style="color:var(--text)">${D.TYPES[topType[0]].label}</b> (${fmt.pct(topType[1] / ev.near.length)})</div>` : ''}
       <label class="field">Móvil asignado<div class="row"><select class="select" id="rt-unit">${MT.Patrols.units.map(u => `<option value="${u.id}" ${u.id === r.unit ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
-        <button class="btn btn-sm" id="rt-assign" title="El móvil pasa a recorrer esta ruta en el mapa operativo">${icon('car', 14)} Aplicar</button></div></label>
+        <button class="btn btn-sm" id="rt-assign" title="El móvil pasa a recorrer esta ruta en el mapa en vivo">${icon('car', 14)} Aplicar</button></div></label>
       ${!good ? `<button class="btn btn-sm btn-warn" id="rt-fix">${icon('clock', 14)} Ajustar horario a ${peakTxt}</button>` : ''}
       <div class="days">${DAYS.map((d, i) => `<label><input type="checkbox" disabled ${r.days.includes(i) ? 'checked' : ''}><span>${d}</span></label>`).join('')}</div>
     </div>
@@ -130,7 +130,7 @@
       r.unit = $('#rt-unit').value;
       persist(r);
       MT.Patrols.setLoop(r.unit, r.path || r.points);
-      MT.toast({ title: 'Ruta asignada', msg: `${esc(MT.Patrols.get(r.unit).name)} ahora recorre "${esc(r.name)}" en el mapa operativo.`, level: 'ok' });
+      MT.toast({ title: 'Ruta asignada', msg: `${esc(MT.Patrols.get(r.unit).name)} ahora recorre "${esc(r.name)}" en el mapa en vivo.`, level: 'ok' });
       drawList();
     };
     const fix = $('#rt-fix');

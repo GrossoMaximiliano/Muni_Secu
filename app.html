@@ -28,7 +28,7 @@
       <header class="topbar">
         <button class="icon-btn menu-btn" id="menu-btn" aria-label="Abrir menú"></button>
         <div class="grow">
-          <h1 id="page-title">Mapa operativo</h1>
+          <h1 id="page-title">Mapa en vivo</h1>
           <div class="crumb">Las Toscas, Santa Fe · <span class="tag tag-sim" style="font-size:10px;padding:0 6px">Demo · datos simulados</span></div>
         </div>
         <div class="clock" id="clock"></div>
@@ -39,7 +39,7 @@
       </header>
 
       <main class="content">
-        <section class="section full" id="sec-mapa">
+        <section class="section full map-sec" id="sec-mapa">
           <div id="map-op"></div>
           <div class="map-toolbar">
             <button class="btn btn-sos btn-sm" id="tb-sos"></button>
@@ -49,6 +49,7 @@
           </div>
           <div class="sim-chip" id="sim-chip"></div>
         </section>
+        <section class="section full map-sec" id="sec-historico"></section>
         <section class="section" id="sec-camaras"></section>
         <section class="section" id="sec-alertas"></section>
         <section class="section" id="sec-flota"></section>
@@ -69,6 +70,7 @@
   <script src="js/utils.js"></script>
   <script src="js/data.js"></script>
   <script src="js/map.js"></script>
+  <script src="js/history.js"></script>
   <script src="js/patrols.js"></script>
   <script src="js/cameras.js"></script>
   <script src="js/alerts.js"></script>

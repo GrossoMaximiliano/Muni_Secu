@@ -134,6 +134,7 @@
         desc: DESCS[type][Math.floor(rand() * DESCS[type].length)]
       });
     }
+    out.push(...todaySamples(now));
     out.sort((a, b) => a.t - b.t);
     const year = new Date().getFullYear();
     out.forEach((inc, i) => {
@@ -142,6 +143,29 @@
       inc.addr = address(inc.lat, inc.lng);
     });
     return out;
+  }
+
+  // Algunos incidentes de hoy para que el mapa en vivo muestre cómo se ve un día normal
+  function todaySamples(now) {
+    const rand = MT.seeded(new Date(now).getDate() * 31 + 5);
+    const start = new Date(now); start.setHours(0, 0, 0, 0);
+    const span = Math.max(30 * 60000, now - start.getTime() - 10 * 60000);
+    const samples = [
+      ['via_publica', HOTSPOTS[0].center, 'Arrebato de celular a peatón por dos sujetos en moto.'],
+      ['vivienda', HOTSPOTS[1].center, 'Vecinos avisan ingreso a vivienda deshabitada.'],
+      ['moto', HOTSPOTS[2].center, 'Robo de motocicleta estacionada frente a domicilio.'],
+      ['comercio', inter(21, 10), 'Hurto de mercadería en almacén; el autor huyó a pie.'],
+      ['vandalismo', inter(13, 12), 'Daños a luminaria pública.'],
+      ['otro', inter(29, 16), 'Disturbios entre vecinos, intervención de patrulla.']
+    ];
+    return samples.map(([type, c, desc], i) => {
+      const t = start.getTime() + span * (i + rand() * 0.8) / samples.length;
+      return {
+        type, lat: c[0] + (rand() - .5) * 0.0016, lng: c[1] + (rand() - .5) * 0.0018, t,
+        status: i >= samples.length - 2 ? 'abierto' : i % 2 ? 'cerrado' : 'investigacion',
+        source: SOURCES[i % SOURCES.length], respMin: 5 + Math.round(rand() * 8), desc
+      };
+    });
   }
 
   /* ---------- Cámaras ---------- */

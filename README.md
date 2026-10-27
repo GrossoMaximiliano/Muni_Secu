@@ -13,13 +13,14 @@ En el login, el botón **"Ingresar como administrador (demo)"** entra directo. U
 
 ## Guion sugerido para la presentación
 
-1. **Mapa operativo**: patrullas moviéndose, cámaras, incidentes y mapa de calor. Cambiar el período (hoy / semana / mes / año) y los tipos de delito.
-2. **SOS ciudadano** (botón rojo arriba del mapa): llega la alerta, el sistema propone el móvil más cercano, lo despacha, traza la ruta por calles y muestra la llegada estimada. Cerrar el caso lo suma al historial.
-3. **Clic derecho en cualquier calle**: SOS, reporte de vecino o carga de incidente en ese punto.
-4. **Cámaras**: clic en una camarita del mapa o en la sección Cámaras. Con "Simular alerta IA" aparece el recuadro de detección.
-5. **Rutas de patrullaje**: comparar el horario de cada recorrido con el horario real de los hechos y ajustarlo con un clic.
-6. **Análisis y planificación**: zonas críticas, recomendaciones y simulador de cobertura de cámaras. Informe imprimible.
-7. **Hoja de ruta**: qué es real, qué está simulado y qué hace falta para implementarlo.
+1. **Mapa en vivo**: lo que pasa hoy: móviles moviéndose, cámaras, incidentes del día, alertas IA y SOS.
+2. **Mapa histórico**: incidentes de la semana, el mes, el año o un rango de fechas, con mapa de calor y filtros por tipo, franja horaria y zona. Sin móviles (solo existen en vivo).
+3. **SOS ciudadano** (botón rojo arriba del mapa): llega la alerta, el sistema propone el móvil más cercano, lo despacha, traza la ruta por calles y muestra la llegada estimada. Cerrar el caso lo suma al historial.
+4. **Clic derecho en cualquier calle**: SOS, reporte de vecino o carga de incidente en ese punto.
+5. **Cámaras**: clic en una camarita del mapa o en la sección Cámaras. Con "Simular alerta IA" aparece el recuadro de detección.
+6. **Rutas de patrullaje**: comparar el horario de cada recorrido con el horario real de los hechos y ajustarlo con un clic.
+7. **Análisis y planificación**: zonas críticas, recomendaciones y simulador de cobertura de cámaras. Informe imprimible.
+8. **Hoja de ruta**: qué es real, qué está simulado y qué hace falta para implementarlo.
 
 ## Qué está simulado
 
@@ -35,7 +36,8 @@ app.html         aplicación
 css/styles.css   estilos
 js/utils.js      utilidades, íconos, ruteo
 js/data.js       datos simulados (grilla de calles real aproximada)
-js/map.js        mapa operativo, filtros, capas
+js/map.js        mapa en vivo (hoy), capas
+js/history.js    mapa histórico con filtros y calor
 js/patrols.js    móviles y despacho
 js/cameras.js    cámaras y visor simulado
 js/alerts.js     alertas IA simuladas
