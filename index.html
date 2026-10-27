@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingreso – Centro de Monitoreo Las Toscas</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="login-bg">
+    <div class="radar"><div class="sweep"></div>
+      <i class="blip" style="left:30%;top:40%"></i>
+      <i class="blip" style="left:62%;top:28%;animation-delay:2s"></i>
+      <i class="blip" style="left:48%;top:70%;animation-delay:4s"></i>
+    </div>
+  </div>
+
+  <main class="login-page">
+    <div class="login-wrap">
+      <section class="login-intro">
+        <div class="brand">
+          <img src="assets/logo.svg" alt="">
+          <div class="brand-txt"><strong>Municipalidad de Las Toscas</strong><span>Santa Fe · Secretaría de Seguridad Ciudadana</span></div>
+        </div>
+        <h1>Centro de Monitoreo <span>Urbano</span></h1>
+        <p>Plataforma para seguir incidentes, coordinar patrullas y cámaras en tiempo real, y planificar la prevención con datos.</p>
+        <ul class="feature-list" id="features"></ul>
+      </section>
+
+      <section class="card login-card">
+        <h2>Ingresar al sistema</h2>
+        <p class="lead">Acceso restringido a personal autorizado.</p>
+        <form id="login-form" class="stack" novalidate>
+          <div id="login-error" class="login-error hidden" role="alert"></div>
+          <label class="field">Correo electrónico
+            <input class="input" type="email" id="email" autocomplete="username" placeholder="usuario@lastoscas.demo" required>
+          </label>
+          <label class="field">Contraseña
+            <span class="pw-wrap">
+              <input class="input" type="password" id="password" autocomplete="current-password" placeholder="••••••••" required>
+              <button type="button" class="icon-btn" id="toggle-pw" aria-label="Mostrar contraseña"></button>
+            </span>
+          </label>
+          <label class="check"><input type="checkbox" id="remember" checked> Mantener la sesión iniciada</label>
+          <button type="submit" class="btn btn-primary btn-block" style="height:42px">Ingresar</button>
+        </form>
+        <div class="divider">o para la presentación</div>
+        <button type="button" class="btn btn-demo btn-block" id="demo-login"></button>
+        <details class="demo-users">
+          <summary>Usuarios de prueba</summary>
+          <p style="margin-top:8px;line-height:1.8">
+            <code>admin@lastoscas.demo</code> · Administrador<br>
+            <code>operador@lastoscas.demo</code> · Operador de monitoreo<br>
+            <code>patrulla@lastoscas.demo</code> · Patrulla<br>
+            Contraseña para todos: <code>demo2026</code>
+          </p>
+        </details>
+        <p class="login-foot">Versión demostrativa · Los datos que se muestran son simulados.</p>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/utils.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
